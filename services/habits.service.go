@@ -14,17 +14,21 @@ import (
 	"github.com/google/uuid"
 )
 
-func GetActiveHabits(c context.Context, userId string) ([]*ent.Habit, error) {
+type HabitService struct {
+	db *ent.Client
+}
+
+func (s *HabitService) GetActiveHabits(c context.Context, userId string) ([]*ent.Habit, error) {
 	userID, err := uuid.Parse(userId)
 	if err != nil {
 		return nil, err
 	}
 
-	habits, err := database.EntDB.Habit.Query().Where(habit.UserID(userID), habit.IsArchived(false)).All(c)
+	habits, err := s.db.Habit.Query().Where(habit.UserID(userID), habit.IsArchived(false)).All(c)
 	return habits, err
 }
 
-func GetTodayCompletions(c context.Context, habitId string, today string) ([]*ent.HabitCompletion, error) {
+func (s *HabitService) GetTodayCompletions(c context.Context, habitId string, today string) ([]*ent.HabitCompletion, error) {
 
 	habitID, err := uuid.Parse(habitId)
 	if err != nil {
@@ -37,7 +41,7 @@ func GetTodayCompletions(c context.Context, habitId string, today string) ([]*en
 }
 
 // Creates a habit then based on the habit type it changes the request body coming into the service
-func CreateHabit(c context.Context, userId string, input dto.HabitDto) (*ent.Habit, error) {
+func (s *HabitService) CreateHabit(c context.Context, userId string, input dto.HabitDto) (*ent.Habit, error) {
 	id, err := uuid.Parse(userId)
 	if err != nil {
 		return nil, err
@@ -48,7 +52,7 @@ func CreateHabit(c context.Context, userId string, input dto.HabitDto) (*ent.Hab
 		return nil, errors.New("Habit title cannot be empty")
 	}
 
-	create := database.EntDB.Habit.Create().SetUserID(id).SetTitle(title).SetIsArchived(false)
+	create := s.db.Habit.Create().SetUserID(id).SetTitle(title).SetIsArchived(false)
 
 	switch input.Type {
 	case dto.HabitTypeBoolean:
@@ -66,7 +70,7 @@ func CreateHabit(c context.Context, userId string, input dto.HabitDto) (*ent.Hab
 	return create.Save(c)
 }
 
-func ArchiveHabits(c context.Context, userId string, habitId string) (string, error) {
+func (s *HabitService) ArchiveHabits(c context.Context, userId string, habitId string) (string, error) {
 
 	userID, err := uuid.Parse(userId)
 	if err != nil {
@@ -77,12 +81,12 @@ func ArchiveHabits(c context.Context, userId string, habitId string) (string, er
 	if err != nil {
 		return "", err
 	}
-	currentHabit, err := database.EntDB.Habit.Query().Where(habit.UserID(userID), habit.ID(habitID)).Only(c)
+	currentHabit, err := s.db.Habit.Query().Where(habit.UserID(userID), habit.ID(habitID)).Only(c)
 	if err != nil {
 		return "", err
 	}
 
-	updatedHabit := database.EntDB.Habit.UpdateOneID(currentHabit.ID).SetIsArchived(!currentHabit.IsArchived)
+	updatedHabit := s.db.Habit.UpdateOneID(currentHabit.ID).SetIsArchived(!currentHabit.IsArchived)
 
 	if currentHabit.IsArchived {
 		updatedHabit.ClearArchivedAt()

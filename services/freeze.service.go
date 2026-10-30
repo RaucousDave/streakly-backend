@@ -1,51 +1,58 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"time"
 
 	"github.com/RaucousDave/streakly/database"
 	"github.com/RaucousDave/streakly/dto"
+	"github.com/RaucousDave/streakly/ent"
+	"github.com/RaucousDave/streakly/ent/freezelog"
 	"github.com/RaucousDave/streakly/models"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
-func GrantWeeklyFreeze(db *gorm.DB, userId string) error {
-	var freezeLog models.FreezeLog
+func GrantWeeklyFreeze(c context.Context, client *ent.Client, userId string) error {
 
-	now := time.Now().UTC()
-	daysSinceMonday := (int(now.Weekday()+6) % 7)
-	weekStart := time.Date(now.Year(), now.Month(), now.Day()-daysSinceMonday, 0, 0, 0, 0, time.UTC)
-
-	// err := db.Where("user_id = ? and reason = ? AND created_at >= ?", userId, models.FreezeReasonWeeklyGrant, weekStart).First(&freezeLog).Error
-
-	database.EntDB.Query().Where(freezeLog.User)
-	var newFreezeLog models.FreezeLog
-	newFreezeLog.UserID = userId
-	newFreezeLog.Amount = +1
-	newFreezeLog.Reason = models.FreezeReasonWeeklyGrant
-
-	error := db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&newFreezeLog).Error; err != nil {
-			return err
-		}
-
-		res := tx.Model(&models.User{}).Where("id = ?", userId).UpdateColumn("freeze_balance", gorm.Expr("freeze_balance + ?", 1))
-
-		if res.Error != nil {
-			return res.Error
-		}
-
-		if res.RowsAffected == 0 {
-			return gorm.ErrRecordNotFound
-		}
-		return nil
-	})
-
-	if error != nil {
-		return error
+	parsedUserID, err := uuid.Parse(userId)
+	if err != nil {
+		return err
 	}
 
+	now := time.Now()
+	daysSinceMonday := (int(now.Weekday() + 6)) % 7
+	weekStart := time.Date(now.Year(), now.Month(), now.Day()-daysSinceMonday, 0, 0, 0, 0, time.UTC)
+
+	tx, err := client.Tx(c)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	existing, err := database.EntDB.FreezeLog.Query().Where(freezelog.UserID(parsedUserID), freezelog.ReasonEQ(freezelog.ReasonWEEKLY_GRANT), freezelog.CreateTimeGTE(weekStart)).First(c)
+
+	if err != nil {
+		return err
+	}
+
+	if err == nil && existing != nil {
+		return tx.Commit()
+	}
+
+	if err != nil && !ent.IsNotFound(err) {
+		return err
+	}
+
+	_, err = tx.FreezeLog.Create().SetUserID(parsedUserID).SetAmount(1).SetReason(freezelog.ReasonWEEKLY_GRANT).SetTargetDate(weekStart.Format("2006-01-02")).Save(c)
+
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
