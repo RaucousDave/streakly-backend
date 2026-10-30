@@ -1,0 +1,104 @@
+package handlers
+
+import (
+	"time"
+
+	"cloud.google.com/go/auth/credentials/idtoken"
+	"github.com/RaucousDave/streakly/config"
+	"github.com/RaucousDave/streakly/dto"
+	"github.com/RaucousDave/streakly/services"
+	"github.com/RaucousDave/streakly/utils"
+	"github.com/gofiber/fiber/v3"
+	"github.com/golang-jwt/jwt/v5"
+)
+
+func Register(c fiber.Ctx) error {
+	var req dto.AuthRequest
+
+	if err := c.Bind().Body(&req); err != nil {
+		return utils.BadRequest(c, "invalid request body", nil)
+	}
+
+	passwordHash := utils.HashPassword(req.Password)
+
+	user := dto.AuthRequest{
+		Email:       req.Email,
+		Password:    passwordHash,
+		DisplayName: req.DisplayName,
+		Timezone:    req.Timezone,
+	}
+
+	newUser, err := services.Register(c, user)
+	if err != nil {
+		return utils.Internal(c, err)
+	}
+
+	return utils.Created(c, "User created successfully", newUser)
+}
+
+func Login(c fiber.Ctx) error {
+	var req dto.LoginDto
+
+	if err := c.Bind().Body(&req); err != nil {
+		return utils.BadRequest(c, "Invalid request body", nil)
+	}
+
+	user, err := services.Login(c, req)
+
+	if !utils.VerifyPassword(*user.PasswordHash, req.Password) {
+		return utils.BadRequest(c, "Invalid credentials", nil)
+	}
+
+	access, refresh, err := utils.GenerateTokenPair(user.ID.String())
+
+	if err != nil {
+		return utils.Internal(c, err)
+	}
+
+	token := dto.AuthResponse{
+		AccessToken:  access,
+		RefreshToken: refresh,
+	}
+
+	return utils.OK(c, token)
+}
+
+func GoogleLogin(c fiber.Ctx) error {
+	var body dto.GoogleLoginDto
+
+	if err := c.Bind().Body(&body); err != nil || body.IDToken == "" {
+		return utils.BadRequest(c, "idToken required", nil)
+	}
+
+	payload, err := idtoken.Validate(c.Context(), body.IDToken, config.Cfg.GoogleClientId)
+	if err != nil {
+		return utils.Unauthorized(c, "Unauthorized", nil)
+	}
+
+	if verified, _ := payload.Claims["email_verified"].(bool); !verified {
+		return utils.Unauthorized(c, "Unauthorized", nil)
+	}
+
+	email, _ := payload.Claims["email"].(string)
+	name, _ := payload.Claims["name"].(string)
+	picture, _ := payload.Claims["picture"].(string)
+
+	user, err := services.UpsertGoogleUser(c, payload.Subject, email, name, picture)
+	if err != nil {
+		return utils.Internal(c, err)
+	}
+
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": user.ID,
+		"exp": time.Now().Add(15 * time.Minute).Unix(),
+	}).SignedString([]byte(config.Cfg.JWTSecret))
+
+	if err != nil {
+		return utils.Internal(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"access_token": token,
+		"user":         user,
+	})
+}
