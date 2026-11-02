@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"time"
 
 	"cloud.google.com/go/auth/credentials/idtoken"
 	"github.com/RaucousDave/streakly/config"
@@ -10,7 +9,6 @@ import (
 	"github.com/RaucousDave/streakly/services"
 	"github.com/RaucousDave/streakly/utils"
 	"github.com/gofiber/fiber/v3"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 type AuthHandler struct {
@@ -55,10 +53,10 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	user, err := h.authService.Login(c, req)
 
 	if err != nil {
-		return utils.Internal(c, err)
+		return utils.BadRequest(c, "Invalid credentials", nil)
 	}
 
-	if user == nil{
+	if user == nil || user.PasswordHash == nil {
 		return utils.Internal(c, errors.New("Login returned a nil user"))
 	}
 
@@ -105,17 +103,10 @@ func (h *AuthHandler) GoogleLogin(c fiber.Ctx) error {
 		return utils.Internal(c, err)
 	}
 
-	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": user.ID,
-		"exp": time.Now().Add(15 * time.Minute).Unix(),
-	}).SignedString([]byte(config.Cfg.JWTSecret))
-
+	access, refresh, err := utils.GenerateTokenPair(user.ID.String())
 	if err != nil {
 		return utils.Internal(c, err)
 	}
 
-	return c.JSON(fiber.Map{
-		"access_token": token,
-		"user":         user,
-	})
+	return utils.OK(c, dto.AuthResponse{AccessToken: access, RefreshToken: refresh})
 }

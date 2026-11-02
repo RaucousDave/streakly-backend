@@ -44,7 +44,6 @@ func (s *FreezeService) GrantWeeklyFreeze(c context.Context, userId string) erro
 
 	existing, err := tx.FreezeLog.Query().Where(freezelog.UserID(parsedUserID), freezelog.ReasonEQ(freezelog.ReasonWEEKLY_GRANT), freezelog.CreateTimeGTE(weekStart)).First(c)
 
-
 	if err == nil && existing != nil {
 		return tx.Commit()
 	}

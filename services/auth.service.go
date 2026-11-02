@@ -53,6 +53,9 @@ func (s *AuthService) Login(c context.Context, dto dto.LoginDto) (*ent.User, err
 	if ent.IsNotFound(err) {
 		return nil, errors.New("User does not exist")
 	}
+	if err != nil {
+		return nil, err
+	}
 
 	return u, nil
 }

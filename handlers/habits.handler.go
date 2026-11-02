@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/RaucousDave/streakly/dto"
-	"github.com/RaucousDave/streakly/models"
 	"github.com/RaucousDave/streakly/services"
 	"github.com/RaucousDave/streakly/utils"
 	"github.com/gofiber/fiber/v3"
@@ -69,29 +68,28 @@ func (h *HabitHandler) ArchiveHabits(c fiber.Ctx) error {
 
 	habitId := c.Params("id")
 
-	var habit models.Habit
 	message, err := h.habitService.ArchiveHabits(c, userId, habitId)
 	if err != nil {
 		return utils.Failure(c, fiber.StatusInternalServerError, "INTERNAL_SERVER_ERROR", message, nil)
 	}
 
-	return utils.Success(c, fiber.StatusOK, message, habit)
+	return utils.Success(c, fiber.StatusOK, message, nil)
 }
 
 func (h *HabitHandler) FreezeHabit(c fiber.Ctx) error {
-	userId, ok := c.Locals("user_id").(string)
+	userId, ok := c.Locals("userId").(string)
 
 	if !ok || userId == "" {
 		return utils.Unauthorized(c, "Unauthorized", nil)
 	}
 	habitId := c.Params("id")
-	var targetDate string
-	err := c.Bind().Body(&targetDate)
+	var req dto.ManualFreezeRequest
+	err := c.Bind().Body(&req)
 	if err != nil {
 		return utils.BadRequest(c, "Bad request", err)
 	}
 
-	res, err := h.freezeService.ManualFreezeHabit(c, userId, targetDate, habitId)
+	res, err := h.freezeService.ManualFreezeHabit(c, userId, req.TargetDate, habitId)
 	if err != nil {
 		return utils.Failure(c, fiber.StatusInternalServerError, "INTERNAL_SERVER_ERROR", err.Error(), nil)
 	}

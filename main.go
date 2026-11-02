@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+	"os"
 	"time"
 
 	"github.com/RaucousDave/streakly/database"
@@ -27,5 +29,9 @@ func main() {
 		})
 	})
 
-	app.Listen(":8000")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8000"
+	}
+	log.Fatal(app.Listen(":" + port))
 }

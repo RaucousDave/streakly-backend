@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/RaucousDave/streakly/dto"
@@ -36,6 +37,12 @@ func (h *DashbaordHandler) GetDashboard(c fiber.Ctx) error {
 	}
 
 	user, err := h.userService.GetUserStats(c, userId)
+	if err != nil {
+		return utils.Internal(c, err)
+	}
+	if user == nil {
+		return utils.Internal(c, fmt.Errorf("user lookup returned nil"))
+	}
 	loc, err := time.LoadLocation(user.Timezone)
 	if err != nil {
 		return utils.Internal(c, err)
@@ -80,6 +87,9 @@ func (h *DashbaordHandler) GetDashboard(c fiber.Ctx) error {
 	}
 
 	habitItems := make([]dto.HabitDashboardItem, 0)
+	if err := h.freezeService.GrantWeeklyFreeze(c, userId); err != nil {
+		return utils.Internal(c, err)
+	}
 
 	for _, habit := range habits {
 		todayCompletion, err := h.habitService.GetTodayCompletions(c, habit.ID.String(), today)
@@ -92,15 +102,10 @@ func (h *DashbaordHandler) GetDashboard(c fiber.Ctx) error {
 			return utils.Internal(c, err)
 		}
 
-		if err := h.freezeService.GrantWeeklyFreeze(c, userId); err != nil {
-			return utils.Internal(c, err)
-		}
-
 		var qtyAchievedToday int
 		if todayCompletion != nil {
 			qtyAchievedToday = todayCompletion.QtyAchieved
 		}
-		qtyAchievedToday = 0
 
 		item := dto.HabitDashboardItem{
 			ID:               habit.ID.String(),

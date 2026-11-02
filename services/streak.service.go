@@ -41,27 +41,16 @@ func (s *StreakService) CalculateStreak(c context.Context, habitId string, userT
 		return 0, err
 	}
 
-	now := time.Now().In(loc)
-	cursor := now
-
+	cursor := time.Now().In(loc)
 	streak := 0
-	todayStr := cursor.Format("2006-01-02")
-
-	if completedDates[todayStr] {
-		streak = 1
-	}
-
-	cursor = cursor.AddDate(0, 0, -1)
 
 	for {
-		dateStr := todayStr
-
-		if completedDates[dateStr] {
-			streak++
-			cursor = cursor.AddDate(0, 0, -1)
-		} else {
+		dateStr := cursor.Format("2006-01-02")
+		if !completedDates[dateStr] {
 			break
 		}
+		streak++
+		cursor = cursor.AddDate(0, 0, -1)
 	}
 	return streak, nil
 }

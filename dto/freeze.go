@@ -7,6 +7,10 @@ type ManualFreezeResponse struct {
 	Reason        string `json:"reason"`
 }
 
+type ManualFreezeRequest struct {
+	TargetDate string `json:"target_date"`
+}
+
 type PerformanceFreezeResponse struct {
 	Success        bool   `json:"success"`
 	Qualified      bool   `json:"qualified"`

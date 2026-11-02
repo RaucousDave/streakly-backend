@@ -1,5 +1,5 @@
 package dto
 
-type GoogleLoginDto struct{
+type GoogleLoginDto struct {
 	IDToken string `json:"id_token"`
 }
