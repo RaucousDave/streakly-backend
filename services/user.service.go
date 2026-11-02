@@ -5,7 +5,6 @@ import (
 
 	"github.com/RaucousDave/streakly/dto"
 	"github.com/RaucousDave/streakly/ent"
-	"github.com/RaucousDave/streakly/ent/user"
 	"github.com/google/uuid"
 )
 
@@ -25,7 +24,13 @@ func (s *UserService) GetUserStats(ctx context.Context, userId string) (*dto.Das
 		return nil, err
 	}
 
-	err = s.db.User.Query().Where(user.ID(userID)).Select(user.FieldDisplayName, user.FieldTimezone, user.FieldFreezeBalance).Scan(ctx, &userInfo)
-
-	return &userInfo, err
+	userRecord, err := s.db.User.Get(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return &dto.DashboardUser{
+          DisplayName:   userRecord.DisplayName,
+          Timezone:      userRecord.Timezone,
+          FreezeBalance: userRecord.FreezeBalance,
+      }, nil
 }
