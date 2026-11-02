@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"time"
 
 	"cloud.google.com/go/auth/credentials/idtoken"
@@ -52,6 +53,14 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	}
 
 	user, err := h.authService.Login(c, req)
+
+	if err != nil {
+		return utils.Internal(c, err)
+	}
+
+	if user == nil{
+		return utils.Internal(c, errors.New("Login returned a nil user"))
+	}
 
 	if !utils.VerifyPassword(*user.PasswordHash, req.Password) {
 		return utils.BadRequest(c, "Invalid credentials", nil)
