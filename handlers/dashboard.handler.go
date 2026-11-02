@@ -23,6 +23,7 @@ func NewDashboardHandler(dashboardService *services.DashboardService, userServic
 		userService:      userService,
 		habitService:     habitService,
 		freezeService:    freezeService,
+		streakService:    streakService,
 	}
 }
 
