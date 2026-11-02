@@ -17,7 +17,6 @@ func NewUserService(db *ent.Client) *UserService {
 }
 
 func (s *UserService) GetUserStats(ctx context.Context, userId string) (*dto.DashboardUser, error) {
-	var userInfo dto.DashboardUser
 
 	userID, err := uuid.Parse(userId)
 	if err != nil {
@@ -29,8 +28,8 @@ func (s *UserService) GetUserStats(ctx context.Context, userId string) (*dto.Das
 		return nil, err
 	}
 	return &dto.DashboardUser{
-          DisplayName:   userRecord.DisplayName,
-          Timezone:      userRecord.Timezone,
-          FreezeBalance: userRecord.FreezeBalance,
-      }, nil
+		DisplayName:   userRecord.DisplayName,
+		Timezone:      userRecord.Timezone,
+		FreezeBalance: userRecord.FreezeBalance,
+	}, nil
 }
