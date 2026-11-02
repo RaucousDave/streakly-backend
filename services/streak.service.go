@@ -1,15 +1,31 @@
 package services
 
 import (
+	"context"
 	"time"
 
-	"github.com/RaucousDave/streakly/models"
-	"gorm.io/gorm"
+	"github.com/RaucousDave/streakly/ent"
+	"github.com/RaucousDave/streakly/ent/habitcompletion"
+	"github.com/google/uuid"
 )
 
-func CalculateStreak(db *gorm.DB, habitId string, userTimezone string, completedHabit models.HabitCompletion) (int, error) {
-	var dates []string
-	if err := db.Model(&models.HabitCompletion{}).Where("habit_id = ? and is_mvt_met = ?", habitId, true).Pluck("completed_date", &dates).Error; err != nil {
+type StreakService struct {
+	db *ent.Client
+}
+
+func NewStreakService(db *ent.Client) *StreakService {
+	return &StreakService{db: db}
+}
+
+func (s *StreakService) CalculateStreak(c context.Context, habitId string, userTimezone string) (int, error) {
+	parsedHabitID, err := uuid.Parse(habitId)
+	if err != nil {
+		return 0, err
+	}
+
+	dates, err := s.db.HabitCompletion.Query().Where(habitcompletion.HabitIDEQ(parsedHabitID), habitcompletion.IsMvtMet(true)).Select(habitcompletion.FieldCompletedDate).Strings(c)
+
+	if err != nil {
 		return 0, err
 	}
 
@@ -20,8 +36,9 @@ func CalculateStreak(db *gorm.DB, habitId string, userTimezone string, completed
 	}
 
 	loc, err := time.LoadLocation(userTimezone)
+
 	if err != nil {
-		loc = time.UTC
+		return 0, err
 	}
 
 	now := time.Now().In(loc)
@@ -37,7 +54,7 @@ func CalculateStreak(db *gorm.DB, habitId string, userTimezone string, completed
 	cursor = cursor.AddDate(0, 0, -1)
 
 	for {
-		dateStr := cursor.Format("2006-01-02")
+		dateStr := todayStr
 
 		if completedDates[dateStr] {
 			streak++

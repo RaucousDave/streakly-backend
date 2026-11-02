@@ -3,10 +3,10 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
-	"github.com/RaucousDave/streakly/database"
 	"github.com/RaucousDave/streakly/dto"
 	"github.com/RaucousDave/streakly/ent"
 	"github.com/RaucousDave/streakly/ent/habit"
@@ -16,6 +16,10 @@ import (
 
 type HabitService struct {
 	db *ent.Client
+}
+
+func NewHabitsService(db *ent.Client) *HabitService {
+	return &HabitService{db: db}
 }
 
 func (s *HabitService) GetActiveHabits(c context.Context, userId string) ([]*ent.Habit, error) {
@@ -28,14 +32,21 @@ func (s *HabitService) GetActiveHabits(c context.Context, userId string) ([]*ent
 	return habits, err
 }
 
-func (s *HabitService) GetTodayCompletions(c context.Context, habitId string, today string) ([]*ent.HabitCompletion, error) {
+func (s *HabitService) GetTodayCompletions(c context.Context, habitId string, today string) (*ent.HabitCompletion, error) {
 
 	habitID, err := uuid.Parse(habitId)
 	if err != nil {
 		return nil, err
 	}
 
-	completedHabits, err := database.EntDB.HabitCompletion.Query().Where(habitcompletion.HabitID(habitID), habitcompletion.CompletedDate(today)).All(c)
+	completedHabits, err := s.db.HabitCompletion.Query().Where(habitcompletion.HabitID(habitID), habitcompletion.CompletedDate(today)).Only(c)
+
+	if ent.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
 
 	return completedHabits, nil
 }
@@ -105,4 +116,82 @@ func (s *HabitService) ArchiveHabits(c context.Context, userId string, habitId s
 	message := "Habit archived successfully"
 
 	return message, nil
+}
+
+func (s *HabitService) SyncCompletions(c context.Context, userId string, batch []dto.HabitCompletionDto) (int, error) {
+	userID, err := uuid.Parse(userId)
+	if err != nil {
+		return 0, err
+	}
+
+	tx, err := s.db.Tx(c)
+
+	if err != nil {
+		return 0, err
+	}
+
+	defer func() {
+		tx.Rollback()
+	}()
+
+	synced := 0
+
+	for _, item := range batch {
+		parsedHabitUUID, err := uuid.Parse(item.HabitId)
+		if err != nil {
+			return 0, err
+		}
+
+		completedAt, err := time.Parse(time.RFC3339, item.CompletedAtUTC)
+		if err != nil {
+			return 0, fmt.Errorf("invalid completed_at_utc for habit %s: %w", item.HabitId, err)
+		}
+
+		exists, err := tx.HabitCompletion.Query().Where(habitcompletion.IdempotencyKeyEQ(item.IdempotencyKey)).Exist(c)
+		if err != nil {
+			return 0, err
+		}
+
+		if exists {
+			continue
+		}
+
+		currentHabit, err := tx.Habit.Query().Where(habit.UserIDEQ(userID), habit.IDEQ(parsedHabitUUID)).Only(c)
+
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return 0, fmt.Errorf("habit %s does not belong to the user", item.HabitId)
+			}
+			return 0, err
+		}
+
+		isMVTMet := false
+		isTargetMet := false
+
+		switch currentHabit.Type {
+		case habit.TypeBOOLEAN:
+			isMVTMet = true
+			isTargetMet = true
+
+		case habit.TypeQUANTITATIVE:
+			if currentHabit.MvtQty != nil {
+				isMVTMet = item.QtyAchieved >= *currentHabit.MvtQty
+			}
+			if currentHabit.TargetQty != nil {
+				isTargetMet = item.QtyAchieved >= *currentHabit.TargetQty
+			}
+		}
+
+		if _, err = tx.HabitCompletion.Create().SetHabitID(parsedHabitUUID).SetUserID(userID).SetCompletedDate(item.CompletedDate).SetCompletedAtUtc(completedAt).SetIsMvtMet(isMVTMet).SetIsTargetMet(isTargetMet).SetIdempotencyKey(item.IdempotencyKey).SetQtyAchieved(item.QtyAchieved).Save(c); err != nil {
+			return 0, err
+		}
+
+		synced++
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+
+	return synced, nil
 }

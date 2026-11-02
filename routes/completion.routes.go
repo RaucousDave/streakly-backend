@@ -6,7 +6,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func RegisterCompletionRoute(r fiber.Router) {
+func RegisterCompletionRoute(r fiber.Router, h *handlers.CompletionHandler) {
 	r.Use(middleware.RequireAuth)
-	r.Post("/", handlers.SyncHabits)
+	r.Post("/", h.SyncHabits)
 }

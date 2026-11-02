@@ -4,7 +4,9 @@ import (
 	"time"
 
 	"github.com/RaucousDave/streakly/database"
+	"github.com/RaucousDave/streakly/handlers"
 	"github.com/RaucousDave/streakly/routes"
+	"github.com/RaucousDave/streakly/services"
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -14,7 +16,9 @@ func main() {
 	app := fiber.New()
 
 	database.DbConnect()
-	routes.Register(app)
+	serviceSet := services.NewService(database.EntDB)
+	handlersSet := handlers.NewHandlers(serviceSet)
+	routes.Register(app, handlersSet)
 
 	app.Get("/health", func(c fiber.Ctx) error {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{

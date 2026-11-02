@@ -12,7 +12,15 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func Register(c fiber.Ctx) error {
+type AuthHandler struct {
+	authService *services.AuthService
+}
+
+func NewAuthHandler(s *services.AuthService) *AuthHandler {
+	return &AuthHandler{authService: s}
+}
+
+func (h *AuthHandler) Register(c fiber.Ctx) error {
 	var req dto.AuthRequest
 
 	if err := c.Bind().Body(&req); err != nil {
@@ -28,7 +36,7 @@ func Register(c fiber.Ctx) error {
 		Timezone:    req.Timezone,
 	}
 
-	newUser, err := services.Register(c, user)
+	newUser, err := h.authService.Register(c, user)
 	if err != nil {
 		return utils.Internal(c, err)
 	}
@@ -36,14 +44,14 @@ func Register(c fiber.Ctx) error {
 	return utils.Created(c, "User created successfully", newUser)
 }
 
-func Login(c fiber.Ctx) error {
+func (h *AuthHandler) Login(c fiber.Ctx) error {
 	var req dto.LoginDto
 
 	if err := c.Bind().Body(&req); err != nil {
 		return utils.BadRequest(c, "Invalid request body", nil)
 	}
 
-	user, err := services.Login(c, req)
+	user, err := h.authService.Login(c, req)
 
 	if !utils.VerifyPassword(*user.PasswordHash, req.Password) {
 		return utils.BadRequest(c, "Invalid credentials", nil)
@@ -63,7 +71,7 @@ func Login(c fiber.Ctx) error {
 	return utils.OK(c, token)
 }
 
-func GoogleLogin(c fiber.Ctx) error {
+func (h *AuthHandler) GoogleLogin(c fiber.Ctx) error {
 	var body dto.GoogleLoginDto
 
 	if err := c.Bind().Body(&body); err != nil || body.IDToken == "" {
@@ -83,7 +91,7 @@ func GoogleLogin(c fiber.Ctx) error {
 	name, _ := payload.Claims["name"].(string)
 	picture, _ := payload.Claims["picture"].(string)
 
-	user, err := services.UpsertGoogleUser(c, payload.Subject, email, name, picture)
+	user, err := h.authService.UpsertGoogleUser(c, payload.Subject, email, name, picture)
 	if err != nil {
 		return utils.Internal(c, err)
 	}

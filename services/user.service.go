@@ -9,9 +9,14 @@ import (
 	"github.com/google/uuid"
 )
 
-type UserService struct{
+type UserService struct {
 	db *ent.Client
 }
+
+func NewUserService(db *ent.Client) *UserService {
+	return &UserService{db: db}
+}
+
 func (s *UserService) GetUserStats(ctx context.Context, userId string) (*dto.DashboardUser, error) {
 	var userInfo dto.DashboardUser
 

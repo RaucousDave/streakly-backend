@@ -3,28 +3,41 @@ package handlers
 import (
 	"time"
 
-	"github.com/RaucousDave/streakly/database"
 	"github.com/RaucousDave/streakly/dto"
 	"github.com/RaucousDave/streakly/services"
 	"github.com/RaucousDave/streakly/utils"
 	"github.com/gofiber/fiber/v3"
-	"gorm.io/gorm"
 )
 
-func GetDashboard(c fiber.Ctx) error {
-	var DB *gorm.DB
+type DashbaordHandler struct {
+	dashboardService *services.DashboardService
+	userService      *services.UserService
+	habitService     *services.HabitService
+	streakService    *services.StreakService
+	freezeService    *services.FreezeService
+}
+
+func NewDashboardHandler(dashboardService *services.DashboardService, userService *services.UserService, habitService *services.HabitService, freezeService *services.FreezeService, streakService *services.StreakService) *DashbaordHandler {
+	return &DashbaordHandler{
+		dashboardService: dashboardService,
+		userService:      userService,
+		habitService:     habitService,
+		freezeService:    freezeService,
+	}
+}
+
+func (h *DashbaordHandler) GetDashboard(c fiber.Ctx) error {
 	const dateFormat = "2006-01-02"
 
-	DB = database.DB
 	userId, ok := c.Locals("userId").(string)
 	if !ok || userId == "" {
 		return utils.Unauthorized(c, "Unauthorized", nil)
 	}
 
-	user, err := services.GetUserStats(c, userId)
+	user, err := h.userService.GetUserStats(c, userId)
 	loc, err := time.LoadLocation(user.Timezone)
 	if err != nil {
-		return utils.Internal(c)
+		return utils.Internal(c, err)
 	}
 
 	todayDate := time.Now().In(loc)
@@ -53,14 +66,14 @@ func GetDashboard(c fiber.Ctx) error {
 		}
 	}
 
-	heatmap, err := services.GetHeatmapEntry(DB, from, to, userId)
+	heatmap, err := h.dashboardService.GetHeatmapEntry(c, from, to, userId)
 	if err != nil {
 		return utils.Internal(c, err)
 	}
 
 	today := time.Now().In(loc).Format("2006-01-02")
 
-	habits, err := services.GetActiveHabits(c, userId)
+	habits, err := h.habitService.GetActiveHabits(c, userId)
 	if err != nil {
 		return utils.Internal(c, err)
 	}
@@ -68,17 +81,17 @@ func GetDashboard(c fiber.Ctx) error {
 	habitItems := make([]dto.HabitDashboardItem, 0)
 
 	for _, habit := range habits {
-		todayCompletion, err := services.GetTodayCompletions(DB, habit.ID.String(), today)
+		todayCompletion, err := h.habitService.GetTodayCompletions(c, habit.ID.String(), today)
 		if err != nil {
 			return utils.Internal(c, err)
 		}
 
-		streak, err := services.CalculateStreak(DB, habit.ID.String(), user.Timezone, *todayCompletion)
+		streak, err := h.streakService.CalculateStreak(c, habit.ID.String(), user.Timezone)
 		if err != nil {
 			return utils.Internal(c, err)
 		}
 
-		if err := services.GrantWeeklyFreeze(DB, userId); err != nil {
+		if err := h.freezeService.GrantWeeklyFreeze(c, userId); err != nil {
 			return utils.Internal(c, err)
 		}
 
@@ -98,7 +111,7 @@ func GetDashboard(c fiber.Ctx) error {
 			CurrentStreak:    streak,
 			IsCompletedToday: todayCompletion != nil,
 			QtyAchievedToday: qtyAchievedToday,
-			IsMVTMetToday:    todayCompletion != nil && todayCompletion.IsMVTMet,
+			IsMVTMetToday:    todayCompletion != nil && todayCompletion.IsMvtMet,
 			IsTargetMetToday: todayCompletion != nil && todayCompletion.IsTargetMet,
 		}
 

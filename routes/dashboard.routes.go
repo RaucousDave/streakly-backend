@@ -6,7 +6,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func RegisterDashboardRoute(r fiber.Router) {
+func RegisterDashboardRoute(r fiber.Router, h *handlers.DashbaordHandler) {
 	r.Use(middleware.RequireAuth)
-	r.Get("/", handlers.GetDashboard)
+	r.Get("/", h.GetDashboard)
 }

@@ -1,44 +1,64 @@
 package services
 
 import (
+	"context"
+	"errors"
 	"time"
 
 	"github.com/RaucousDave/streakly/dto"
-	"github.com/RaucousDave/streakly/models"
-	"gorm.io/gorm"
+	"github.com/RaucousDave/streakly/ent"
+	"github.com/RaucousDave/streakly/ent/habit"
+	"github.com/RaucousDave/streakly/ent/habitcompletion"
+	"github.com/google/uuid"
 )
 
-func GetHeatmapEntry(db *gorm.DB, from time.Time, to time.Time, userId string) (*[]dto.HeatmapEntry, error) {
-	const dateFormat = "2006-01-02"
-	var habits []models.Habit
-	var heatmapEntries []dto.HeatmapEntry
-	var completedHabit []models.HabitCompletion
-	for current := from; !current.After(to); current.AddDate(0, 0, 1) {
-		date := current.Format(dateFormat)
-		var totalHabits int
-		err := db.Where("user_id = ? and created_at <= ?  and archived_at = ?  or archived_at > ?", userId, to, "null", from).Find(&habits)
+type DashboardService struct {
+	db *ent.Client
+}
+
+func NewDashboardService(db *ent.Client) *DashboardService {
+	return &DashboardService{db: db}
+}
+
+func (s *DashboardService) GetHeatmapEntry(c context.Context, from time.Time, to time.Time, userId string) (*[]dto.HeatmapEntry, error) {
+
+	from = from.UTC()
+	to = to.UTC()
+
+	if to.Before(from) {
+		return nil, errors.New("invalid date range")
+	}
+	parsedUUID, err := uuid.Parse(userId)
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make([]dto.HeatmapEntry, 0)
+
+	for current := from; !current.After(to); current = current.AddDate(0, 0, 1) {
+		date := current.Format("2006-01-02")
+		nextDay := current.AddDate(0, 0, 1)
+
+		totalHabits, err := s.db.Habit.Query().Where(habit.UserIDEQ(parsedUUID), habit.CreateTimeLT(nextDay), habit.Or(habit.IsArchivedEQ(false), habit.ArchivedAtIsNil(), habit.ArchivedAtGT(current))).Count(c)
 
 		if err != nil {
-			return nil, err.Error
+			return nil, err
 		}
 
-		totalHabits = len(habits)
+		completedHabits, err := s.db.HabitCompletion.Query().Where(habitcompletion.UserIDEQ(parsedUUID), habitcompletion.CompletedDateEQ(date), habitcompletion.IsMvtMet(true)).Count(c)
 
-		var completedHabits int
-		err = db.Where("user_id ? and completed_at = ?", userId, date).Find(&completedHabit)
-		completedHabits = len(completedHabit)
+		if err != nil {
+			return nil, err
+		}
 
-		completed := totalHabits == completedHabits
-
-		heatmapEntry := dto.HeatmapEntry{
+		entries = append(entries, dto.HeatmapEntry{
 			Date:           date,
-			Completed:      completed,
-			CompletedCount: completedHabits,
+			Completed:      totalHabits > 0 && completedHabits == totalHabits,
 			Total:          totalHabits,
-		}
-
-		heatmapEntries = append(heatmapEntries, heatmapEntry)
+			CompletedCount: completedHabits,
+		})
 
 	}
-	return &heatmapEntries, nil
+
+	return &entries, nil
 }

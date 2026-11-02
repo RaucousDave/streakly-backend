@@ -5,9 +5,9 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func RegisterAuthRoutes(r fiber.Router) {
+func RegisterAuthRoutes(r fiber.Router, h *handlers.AuthHandler) {
 
-	r.Post("/login", handlers.Login)
-	r.Post("/sign-up", handlers.Register)
-	r.Post("/google", handlers.GoogleLogin)
+	r.Post("/login", h.Login)
+	r.Post("/sign-up", h.Register)
+	r.Post("/google", h.GoogleLogin)
 }
