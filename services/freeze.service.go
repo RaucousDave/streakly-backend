@@ -57,7 +57,12 @@ func (s *FreezeService) GrantWeeklyFreeze(c context.Context, userId string) erro
 	if err != nil {
 		return err
 	}
-	return nil
+
+	if _, err := tx.User.Update().Where(user.IDEQ(parsedUserID)).AddFreezeBalance(1).Save(c); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (s *FreezeService) ManualFreezeHabit(c context.Context, userId string, targetDate string, habitId string) (*dto.ManualFreezeResponse, error) {

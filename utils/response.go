@@ -57,5 +57,9 @@ func Conflict(c fiber.Ctx, message string) error {
 }
 
 func Internal(c fiber.Ctx, err error) error {
-	return Failure(c, fiber.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "Something went wrong", err)
+	details := any(nil)
+	if err != nil {
+		details = err.Error()
+	}
+	return Failure(c, fiber.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "Something went wrong", details)
 }

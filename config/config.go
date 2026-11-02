@@ -52,7 +52,7 @@ func getEnv(key string, fallback string) string {
 func mustGetEnv(key string) string {
 	v := os.Getenv(key)
 
-	if v != "" {
+	if v == "" {
 		log.Fatalf("Error loading env variables for %v", key)
 	}
 
