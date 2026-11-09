@@ -60,6 +60,18 @@ func (h *HabitHandler) GetAllHabits(c fiber.Ctx) error {
 	return utils.OK(c, habits)
 }
 
+func (h *HabitHandler) GetArchivedHabits(c fiber.Ctx) error {
+	userId, ok := c.Locals("userId").(string)
+	if !ok || userId == "" {
+		return utils.Unauthorized(c, "Unauthorized", nil)
+	}
+	habits, err := h.habitService.GetArchivedHabits(c, userId)
+	if err != nil {
+		return utils.Internal(c, err)
+	}
+	return utils.OK(c, habits)
+}
+
 func (h *HabitHandler) ArchiveHabits(c fiber.Ctx) error {
 	userId, ok := c.Locals("userId").(string)
 	if !ok || userId == "" {

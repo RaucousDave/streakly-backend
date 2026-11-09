@@ -32,6 +32,14 @@ func (s *HabitService) GetActiveHabits(c context.Context, userId string) ([]*ent
 	return habits, err
 }
 
+func (s *HabitService) GetArchivedHabits(c context.Context, userId string) ([]*ent.Habit, error) {
+	userID, err := uuid.Parse(userId)
+	if err != nil {
+		return nil, err
+	}
+	return s.db.Habit.Query().Where(habit.UserID(userID), habit.IsArchived(true)).Order(ent.Desc(habit.FieldArchivedAt)).All(c)
+}
+
 func (s *HabitService) GetTodayCompletions(c context.Context, habitId string, today string) (*ent.HabitCompletion, error) {
 
 	habitID, err := uuid.Parse(habitId)
