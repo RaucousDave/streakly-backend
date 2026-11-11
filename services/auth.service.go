@@ -17,7 +17,7 @@ func NewAuthService(db *ent.Client) *AuthService {
 	return &AuthService{db: db}
 }
 
-func (s *AuthService) UpsertGoogleUser(ctx context.Context, googleId string, email, name, picture string) (*ent.User, error) {
+func (s *AuthService) UpsertGoogleUser(ctx context.Context, googleId string, email, name, picture, timezone string) (*ent.User, error) {
 	u, err := s.db.User.Query().Where(user.GoogleID(googleId)).Only(ctx)
 
 	if err == nil {

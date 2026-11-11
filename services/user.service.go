@@ -17,7 +17,6 @@ func NewUserService(db *ent.Client) *UserService {
 }
 
 func (s *UserService) GetUserStats(ctx context.Context, userId string) (*dto.DashboardUser, error) {
-
 	userID, err := uuid.Parse(userId)
 	if err != nil {
 		return nil, err
