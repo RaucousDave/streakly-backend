@@ -38,7 +38,7 @@ func (s *AuthService) UpsertGoogleUser(ctx context.Context, googleId string, ema
 		return nil, err
 	}
 
-	u, err = s.db.User.Create().SetGoogleID(googleId).SetEmail(email).SetDisplayName(name).SetAvatarURL(picture).SetAuthProvider("GOOGLE").Save(ctx)
+	u, err = s.db.User.Create().SetGoogleID(googleId).SetEmail(email).SetDisplayName(name).SetAvatarURL(picture).SetAuthProvider("GOOGLE").SetTimezone(timezone).Save(ctx)
 
 	if ent.IsConstraintError(err) {
 		return s.db.User.Query().Where(user.Or(user.GoogleID(googleId), user.Email(email))).Only(ctx)

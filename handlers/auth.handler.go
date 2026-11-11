@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"time"
 
 	"cloud.google.com/go/auth/credentials/idtoken"
 	"github.com/RaucousDave/streakly/config"
@@ -80,7 +81,7 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 
 func (h *AuthHandler) GoogleLogin(c fiber.Ctx) error {
 	var body dto.GoogleLoginDto
-	var timezone string
+	
 
 	if err := c.Bind().Body(&body); err != nil || body.IDToken == "" {
 		return utils.BadRequest(c, "idToken required", nil)
@@ -95,15 +96,19 @@ func (h *AuthHandler) GoogleLogin(c fiber.Ctx) error {
 		return utils.Unauthorized(c, "Unauthorized", nil)
 	}
 
+	timezone := body.Timezone
 	if body.Timezone == ""{
 			timezone = "UTC"
 	}
 
-	timezone = payload.Claims["timezone"].(string)
+	
 	email, _ := payload.Claims["email"].(string)
 	name, _ := payload.Claims["name"].(string)
 	picture, _ := payload.Claims["picture"].(string)
 	
+	if _, err := time.LoadLocation(timezone); err != nil{
+		return utils.BadRequest(c, "Invalid timezone", nil)
+	}
 
 	user, err := h.authService.UpsertGoogleUser(c, payload.Subject, email, name, picture, timezone)
 	if err != nil {
