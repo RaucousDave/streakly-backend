@@ -12,5 +12,6 @@ func RegisterHabitRoutes(r fiber.Router, h *handlers.HabitHandler) {
 	r.Get("/", h.GetAllHabits)
 	r.Get("/archived", h.GetArchivedHabits)
 	r.Patch("/:id/archive", h.ArchiveHabits)
+	r.Patch("/:id", h.EditHabit)
 	r.Post("/:id/freeze", h.FreezeHabit)
 }

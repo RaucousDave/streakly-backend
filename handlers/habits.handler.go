@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"errors"
 	"log"
 	"strings"
 
 	"github.com/RaucousDave/streakly/dto"
+	"github.com/RaucousDave/streakly/ent"
 	"github.com/RaucousDave/streakly/services"
 	"github.com/RaucousDave/streakly/utils"
 	"github.com/gofiber/fiber/v3"
@@ -43,6 +45,28 @@ func (h *HabitHandler) AddHabit(c fiber.Ctx) error {
 		return utils.Internal(c, err)
 	}
 	return utils.Created(c, "Habit created successfully", habit)
+}
+
+func (h *HabitHandler) EditHabit(c fiber.Ctx) error {
+	userID, ok := c.Locals("userId").(string)
+	if !ok || userID == "" {
+		return utils.Unauthorized(c, "Unauthorized", nil)
+	}
+	var req dto.EditHabitDto
+	if err := c.Bind().Body(&req); err != nil {
+		return utils.BadRequest(c, "Invalid request body", nil)
+	}
+	updated, err := h.habitService.EditHabit(c, userID, c.Params("id"), req)
+	if errors.Is(err, services.ErrInvalidHabitEdit) {
+		return utils.BadRequest(c, err.Error(), nil)
+	}
+	if ent.IsNotFound(err) {
+		return utils.NotFound(c, "Habit not found", nil)
+	}
+	if err != nil {
+		return utils.Internal(c, err)
+	}
+	return utils.OK(c, updated)
 }
 
 func (h *HabitHandler) GetAllHabits(c fiber.Ctx) error {

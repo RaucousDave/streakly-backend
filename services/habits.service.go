@@ -89,6 +89,75 @@ func (s *HabitService) CreateHabit(c context.Context, userId string, input dto.H
 	return create.Save(c)
 }
 
+var ErrInvalidHabitEdit = errors.New("invalid habit edit")
+
+func (s *HabitService) EditHabit(c context.Context, userId, habitId string, input dto.EditHabitDto) (*ent.Habit, error) {
+	userID, err := uuid.Parse(userId)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid user ID", ErrInvalidHabitEdit)
+	}
+	habitID, err := uuid.Parse(habitId)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid habit ID", ErrInvalidHabitEdit)
+	}
+	current, err := s.db.Habit.Query().Where(habit.ID(habitID), habit.UserID(userID)).Only(c)
+	if err != nil {
+		return nil, err
+	}
+	next, err := prepareHabitEdit(*current, input)
+	if err != nil {
+		return nil, err
+	}
+	update := s.db.Habit.UpdateOneID(habitID).Where(habit.UserID(userID)).
+		SetTitle(next.Title).SetType(next.Type)
+	if next.Type == habit.TypeBOOLEAN {
+		update.ClearUnit().ClearTargetQty().ClearMvtQty()
+	} else {
+		update.SetUnit(*next.Unit).SetTargetQty(*next.TargetQty).SetMvtQty(*next.MvtQty)
+	}
+	return update.Save(c)
+}
+
+// Validate the merged state so partial edits cannot leave inconsistent quantities.
+func prepareHabitEdit(current ent.Habit, input dto.EditHabitDto) (ent.Habit, error) {
+	if input.Title == nil && input.Type == nil && input.Unit == nil && input.TargetQty == nil && input.MVTQty == nil {
+		return current, fmt.Errorf("%w: provide at least one field", ErrInvalidHabitEdit)
+	}
+	if input.Title != nil {
+		current.Title = strings.TrimSpace(*input.Title)
+	}
+	if strings.TrimSpace(current.Title) == "" {
+		return current, fmt.Errorf("%w: title cannot be empty", ErrInvalidHabitEdit)
+	}
+	if input.Type != nil {
+		current.Type = habit.Type(*input.Type)
+	}
+	if input.Unit != nil {
+		unit := strings.TrimSpace(*input.Unit)
+		current.Unit = &unit
+	}
+	if input.TargetQty != nil {
+		current.TargetQty = input.TargetQty
+	}
+	if input.MVTQty != nil {
+		current.MvtQty = input.MVTQty
+	}
+	switch current.Type {
+	case habit.TypeBOOLEAN:
+		current.Unit, current.TargetQty, current.MvtQty = nil, nil, nil
+	case habit.TypeQUANTITATIVE:
+		if current.Unit == nil || strings.TrimSpace(*current.Unit) == "" || current.TargetQty == nil || current.MvtQty == nil {
+			return current, fmt.Errorf("%w: quantitative habits require unit, target_qty and mvt_qty", ErrInvalidHabitEdit)
+		}
+		if *current.TargetQty <= 0 || *current.MvtQty <= 0 || *current.MvtQty > *current.TargetQty {
+			return current, fmt.Errorf("%w: quantities must satisfy 0 < mvt_qty <= target_qty", ErrInvalidHabitEdit)
+		}
+	default:
+		return current, fmt.Errorf("%w: type must be BOOLEAN or QUANTITATIVE", ErrInvalidHabitEdit)
+	}
+	return current, nil
+}
+
 func (s *HabitService) ArchiveHabits(c context.Context, userId string, habitId string) (string, error) {
 
 	userID, err := uuid.Parse(userId)

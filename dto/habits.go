@@ -22,3 +22,11 @@ type HabitCompletionDto struct {
 	QtyAchieved    int    `json:"qty_achieved"`
 	IdempotencyKey string `json:"idempotency_key"`
 }
+
+type EditHabitDto struct {
+	Title     *string    `json:"title"`
+	Type      *HabitType `json:"type"`
+	TargetQty *int       `json:"target_qty"`
+	MVTQty    *int       `json:"mvt_qty"`
+	Unit      *string    `json:"unit"`
+}
