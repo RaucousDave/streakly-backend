@@ -8,28 +8,30 @@ import (
 )
 
 type CompletionHandler struct {
-	habitService *services.HabitService
+	completionService *services.CompletionService
 }
 
-func NewHabitCompletionHandler(s *services.HabitService) *CompletionHandler {
-	return &CompletionHandler{habitService: s}
+func NewCompletionHandler(completionService *services.CompletionService) *CompletionHandler {
+	return &CompletionHandler{
+		completionService: completionService,
+	}
 }
-func (h *CompletionHandler) SyncHabits(c fiber.Ctx) error {
+func (h *CompletionHandler) SyncCompletions(c fiber.Ctx) error {
+	var req []dto.HabitCompletionDto
 	userId, ok := c.Locals("userId").(string)
+
 	if !ok || userId == "" {
 		return utils.Unauthorized(c, "Unauthorized", nil)
 	}
 
-	var batch []dto.HabitCompletionDto
-
-	if err := c.Bind().Body(&batch); err != nil {
+	if err := c.Bind().Body(&req); err != nil {
 		return utils.BadRequest(c, "Invalid request body", nil)
 	}
 
-	syncedCount, err := h.habitService.SyncCompletions(c, userId, batch)
+	synced, err := h.completionService.SyncCompletions(c, req, userId)
 	if err != nil {
-		return utils.BadRequest(c, "Bad Request", nil)
+		return err
 	}
 
-	return utils.Success(c, fiber.StatusOK, "Completions synced successfully", syncedCount)
+	return utils.Success(c, fiber.StatusOK, "Habits synced successfully", synced)
 }

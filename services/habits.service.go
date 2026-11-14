@@ -158,6 +158,24 @@ func prepareHabitEdit(current ent.Habit, input dto.EditHabitDto) (ent.Habit, err
 	return current, nil
 }
 
+func (s *HabitService) DeleteHabit(c context.Context, userId string, habitId string) error {
+	id, err := uuid.Parse(userId)
+	if err != nil {
+		return err
+	}
+
+	habitID, err := uuid.Parse(habitId)
+	if err != nil {
+		return err
+	}
+
+	if err = s.db.Habit.DeleteOneID(habitID).Where(habit.UserID(id)).Exec(c); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *HabitService) ArchiveHabits(c context.Context, userId string, habitId string) (string, error) {
 
 	userID, err := uuid.Parse(userId)
@@ -170,6 +188,7 @@ func (s *HabitService) ArchiveHabits(c context.Context, userId string, habitId s
 		return "", err
 	}
 	currentHabit, err := s.db.Habit.Query().Where(habit.UserID(userID), habit.ID(habitID)).Only(c)
+
 	if err != nil {
 		return "", err
 	}
