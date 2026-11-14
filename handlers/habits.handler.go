@@ -131,3 +131,21 @@ func (h *HabitHandler) FreezeHabit(c fiber.Ctx) error {
 	}
 	return utils.Created(c, "Habit frozen successfully", res)
 }
+
+func (h *HabitHandler) DeleteHabit(c fiber.Ctx) error {
+	userId, ok := c.Locals("userId").(string)
+
+	if !ok || userId == "" {
+		return utils.Unauthorized(c, "Unauthorized", nil)
+	}
+
+	habitId := c.Params("id")
+
+	err := h.habitService.DeleteHabit(c, userId, habitId)
+
+	if err != nil {
+		return utils.Internal(c, err)
+	}
+
+	return utils.Success(c, fiber.StatusOK, "Habit Deleted successfully", nil)
+}
