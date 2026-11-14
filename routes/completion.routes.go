@@ -8,5 +8,5 @@ import (
 
 func RegisterCompletionRoute(r fiber.Router, h *handlers.CompletionHandler) {
 	r.Use(middleware.RequireAuth)
-	r.Post("/", h.SyncHabits)
+	r.Post("/", h.SyncCompletions)
 }

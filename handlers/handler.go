@@ -13,7 +13,7 @@ func NewHandlers(s *services.Services) *Handler {
 	return &Handler{
 		Auth:       NewAuthHandler(s.Auth),
 		Habits:     NewHabitHandler(s.Habit, s.Freeze),
-		Completion: NewHabitCompletionHandler(s.Habit),
+		Completion: NewCompletionHandler(s.Completion),
 		Dashboard:  NewDashboardHandler(s.Dashboard, s.User, s.Habit, s.Freeze, s.Streak),
 	}
 }
