@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"log"
+
 	"github.com/RaucousDave/streakly/dto"
 	"github.com/RaucousDave/streakly/ent"
 	"github.com/RaucousDave/streakly/ent/user"
@@ -50,7 +52,7 @@ func (s *AuthService) UpsertGoogleUser(ctx context.Context, googleId string, ema
 func (s *AuthService) Login(c context.Context, dto dto.LoginDto) (*ent.User, error) {
 	u, err := s.db.User.Query().Where(user.Email(dto.Email)).Only(c)
 
-	log.Println("")
+	log.Println("Logging in to user account")
 
 	if ent.IsNotFound(err) {
 		return nil, errors.New("User does not exist")
@@ -64,6 +66,8 @@ func (s *AuthService) Login(c context.Context, dto dto.LoginDto) (*ent.User, err
 
 func (s *AuthService) Register(c context.Context, dto dto.AuthRequest) (*ent.User, error) {
 	u, err := s.db.User.Create().SetDisplayName(dto.DisplayName).SetEmail(dto.Email).SetPasswordHash(dto.Password).SetAuthProvider("EMAIL").SetTimezone(dto.Timezone).Save(c)
+
+	log.Println("Creating user account")
 
 	if ent.IsConstraintError(err) {
 		return nil, err
