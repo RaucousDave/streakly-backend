@@ -50,6 +50,8 @@ func (s *AuthService) UpsertGoogleUser(ctx context.Context, googleId string, ema
 func (s *AuthService) Login(c context.Context, dto dto.LoginDto) (*ent.User, error) {
 	u, err := s.db.User.Query().Where(user.Email(dto.Email)).Only(c)
 
+	log.Println("")
+
 	if ent.IsNotFound(err) {
 		return nil, errors.New("User does not exist")
 	}
